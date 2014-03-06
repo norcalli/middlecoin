@@ -5,9 +5,14 @@ package middlecoin
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"time"
 )
+
+// Url is the url that middlecoin uses to expose the json API.
+const Url = "http://www.middlecoin.com/json"
 
 // ReportFloat64 is a simple type on which I defined Unmarshal.
 type ReportFloat64 float64
@@ -107,6 +112,8 @@ func (r *AddressReport) Add(o *AddressReport) *AddressReport {
 	return r
 }
 
+// Profit returns the total potential profit as the sum of the
+// balance, immature balance, paid balance, and unexchanged balance.
 func (r *AddressReport) Profit() float64 {
 	return float64(r.BitcoinBalance + r.ImmatureBalance + r.PaidOut + r.UnexchangedBalance)
 }
@@ -137,4 +144,29 @@ func (r *AddressReport) String() string {
 		profit,
 		bitcointousd, usdprofit,
 	)
+}
+
+// Decode is a method that you can use on a reader to parse it into an
+// overview report.
+func Decode(reader io.Reader) (*OverviewReport, error) {
+	r := new(OverviewReport)
+	decoder := json.NewDecoder(reader)
+	if err := decoder.Decode(&r); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+// Fetch is a method that fetches the package from the url and decodes it.
+func Fetch() (*OverviewReport, error) {
+	if response, err := http.Get(Url); err != nil {
+		return nil, err
+	} else {
+		defer response.Body.Close()
+		if report, err := Decode(response.Body); err != nil {
+			return nil, err
+		} else {
+			return report, nil
+		}
+	}
 }
